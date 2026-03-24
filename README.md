@@ -1,0 +1,2 @@
+# DupFin
+Duplicator finder
