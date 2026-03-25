@@ -1,14 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Security.Cryptography; // Нужно для вычисления хешей (MD5/SHA)
+using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace DupFin
 {
     class Program
     {
-        static void Main(string[] args)
+        // Dictionary for result.
+        // Key = hash, value = list of paths for hash
+        private static Dictionary<string, List<string>> fileHashes = new Dictionary<string, List<string>>();
+        private static readonly object _lock = new object();
+        static async Task Main(string[] args)
         {
             string mascot = @"
        <@_________________________>_._<_________________________@>      
@@ -28,98 +33,116 @@ namespace DupFin
             Console.WriteLine("Choose directory or press 'Enter' for current path");
             string path = Console.ReadLine();
 
-            if (string.IsNullOrWhiteSpace(path)) path = Directory.GetCurrentDirectory(); 
+            if (string.IsNullOrWhiteSpace(path)) path = Directory.GetCurrentDirectory();
 
-            if (!Directory.Exists(path)) 
+            if (!Directory.Exists(path))
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("Directory not found! Check the path, dummy.");
                 Console.ResetColor();
-                return; 
-            } 
-                        
-            Console.WriteLine($"Scaning path: {path} ...");
+                return;
+            }
 
-            // Dictionary for result.
-            // Key = hash, value = list of paths for hash
-            Dictionary<string, List<string>> fileHashes = new Dictionary<string, List<string>>();
+            Console.WriteLine($"Scaning path: {path} ...");
 
             // Getting all files recursively
             // SearchOption.AllDirectories — subfolders
             string[] files = Directory.GetFiles(path, "*.*", SearchOption.AllDirectories);
 
+            var tasks = new List<Task>();
+
+
             foreach (string file in files)
             {
-                try
-                {
-                    // Skipping files that may be busy or unavailable
-                    if (new FileInfo(file).Length == 0) continue;
-
-                    // finding hash, if exist double - add to list
-                    string hash = GetFileHash(file);
-
-                    if (fileHashes.ContainsKey(hash))
-                        fileHashes[hash].Add(file);
-                    else
-                        fileHashes[hash] = new List<string> { file };
-                }
-                catch (Exception ex)
-                {
-                    // delited file
-                    Console.WriteLine($" Skipping file {file}: {ex.Message}");
-                }
+                tasks.Add(ProcessFileAsync(file));
             }
 
-            // Results
-            Console.WriteLine("\nResults:");
-            int duplicateCount = 0;
+            // Waiting to ALL end
+            await Task.WhenAll(tasks);
 
-            foreach (var group in fileHashes)
-            {
-                // Only groups where files more then 1
-                if (group.Value.Count > 1)
-                {
-                    duplicateCount += group.Value.Count - 1;
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"\nFind doubles (Hash: {group.Key.Substring(0, 10)}...):");
-                    Console.ResetColor();
+            Console.WriteLine("\nPress Enter to exit [DEBUG]");
+            Console.ReadKey();
+            Console.Clear();
 
-                    foreach (string filePath in group.Value)
-                        Console.WriteLine($"  [+] {filePath}");
-                }
-            }
+            // Results 2
+            PrintResults();
 
-            if (duplicateCount == 0)
-                Console.WriteLine("No duplicates.");
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"\nFound doubles: {duplicateCount}");
-                Console.ResetColor();
-            }
-
-            Console.WriteLine("\n Press 'Enter' to exit");
+            Console.WriteLine("\nPress Enter to exit...");
             Console.ReadKey();
         }
 
-        // Method for MD5 hash
-        static string GetFileHash(string filePath)
+        // asynchronous single file processing method 
+        static async Task ProcessFileAsync(string filePath)
         {
-            using (MD5 md5 = MD5.Create()) // Create a hashing object
+
+            try
             {
-                using (FileStream stream = File.OpenRead(filePath)) // Opening a reading stream
+                // Skipping empty files
+                var info = new FileInfo(filePath);
+                if (info.Length == 0) return;
+
+                // Waiting for calc Hash
+                string hash = await GetFileHashAsync(filePath);
+
+                lock (_lock)
                 {
-                    // Calculate the hash of a file's bytes
-                    byte[] hashBytes = md5.ComputeHash(stream);
+                    if (!fileHashes.ContainsKey(hash))
+                        fileHashes[hash] = new List<string>();
 
-                    // Bytes to string (hex-format)
-                    StringBuilder sb = new StringBuilder();
-                    foreach (byte b in hashBytes)
-                        sb.Append(b.ToString("x2")); // "x2" = 2 symbols in hex
-
-                    return sb.ToString();
+                    fileHashes[hash].Add(filePath);
+                    Console.WriteLine($"[DEBUG] Thread " +
+                        $"{System.Threading.Thread.CurrentThread.ManagedThreadId}: Adding {filePath} " +
+                        $"to hash {hash[..8]}... Total keys in dictionary: {fileHashes.Count}");
                 }
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Skipping {filePath}: {ex.Message}");
+            }
+        }
+
+        // Asynchronous file hashing
+        static async Task<string> GetFileHashAsync(string filePath)
+        {
+            using (SHA256 sha256 = SHA256.Create())
+            using (FileStream stream = File.OpenRead(filePath))
+            {
+                // Task.Run offloads computation to a thread from the pool
+                // await releases the current thread while we wait for the result
+                byte[] hashBytes = await Task.Run(() => sha256.ComputeHash(stream));
+
+                // convert bytes in string
+                StringBuilder sb = new StringBuilder();
+                foreach (byte b in hashBytes)
+                    sb.Append(b.ToString("x2"));
+
+                return sb.ToString();
+            }
+        }
+        
+        // Results 1
+        static void PrintResults()
+        {
+            Console.WriteLine("\n=== RESULTS ===");
+            int duplicates = 0;
+
+            foreach (var group in fileHashes)
+            {
+                if (group.Value.Count > 1)
+                {
+                    duplicates += group.Value.Count - 1;
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"\n[!] Hash: {group.Key.Substring(0, 10)}...");
+                    Console.ResetColor();
+
+                    foreach (var f in group.Value)
+                        Console.WriteLine($"    [+] {f}");
+                }
+            }
+
+            Console.ForegroundColor = duplicates > 0 ? ConsoleColor.Green : ConsoleColor.White;
+            Console.WriteLine($"\nTotal duplicates found:: {duplicates}");
+            Console.ResetColor();
         }
     }
 }
