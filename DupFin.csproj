@@ -7,4 +7,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Folder Include="737263\436F7265\Interfaces\" />
+    <Folder Include="737263\436F7265\Models\" />
+    <Folder Include="737263\57696E466F726D73\" />
+    <Folder Include="7465737473\" />
+  </ItemGroup>
+
 </Project>
