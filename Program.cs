@@ -7,13 +7,15 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
-using static System.Net.WebRequestMethods;
+using DupFin.Enums;
+using static DupFin._737263._436F7265.Services.ChoiceService;
+using HashAlgorithm = DupFin._737263._436F7265.Services.ChoiceService.HashAlgorithm;
 
 
 namespace DupFin
 {
-    class Program
-    {
+      class Program
+      {
         private static async Task Main(string[] args)
         {
             string mascot = @"
@@ -28,10 +30,59 @@ namespace DupFin
 
 
 ";
+            Console.BackgroundColor = ConsoleColor.Cyan;
             Console.WriteLine(mascot);
             Console.WriteLine("*===*Welcome to DupFin 1.1*===*");
 
-            Console.WriteLine("Choose type of scan");
+            static ScanMode GetScanMode()
+            {
+                Console.WriteLine("\nChoose type of scan");
+
+                var modes = Enum.GetNames(typeof(ScanMode));
+
+                for (int i = 0; i < modes.Length; i++)
+                {
+                    Console.WriteLine($"{i + 1}. {modes[i]}");
+                }
+
+                Console.Write($"\nChoose (1-{modes.Length}): ");
+                string choice = Console.ReadLine();
+
+                // Parsing user input and validating it
+                if (int.TryParse(choice, out int index) && index >= 1 && index <= modes.Length)
+                {
+                    return (ScanMode)Enum.Parse(typeof(ScanMode), modes[index - 1]);
+                }
+
+                // Default is Async
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Are you stupid? ok we gona use Async");
+                Console.ResetColor();
+                return ScanMode.Async;
+            }
+
+            // Same for hash
+            static HashAlgorithmType GetHashAlgorithm()
+            {
+                Console.WriteLine("\nChoose type of hash");
+
+                var algos = Enum.GetNames(typeof(HashAlgorithmType));
+
+                for (int i = 0; i < algos.Length; i++)
+                {
+                    Console.WriteLine($"{i + 1}. {algos[i]}");
+                }
+
+                Console.Write($"\nChoose (1-{algos.Length}): ");
+                string choice = Console.ReadLine();
+
+                if (int.TryParse(choice, out int index) && index >= 1 && index <= algos.Length)
+                {
+                    return (HashAlgorithmType)Enum.Parse(typeof(HashAlgorithmType), algos[index - 1]);
+                }
+
+                return HashAlgorithmType.SHA256; // Default
+            }
 
             // Enter — searching in current path
             Console.WriteLine("Choose directory or press 'Enter' for current path");
@@ -49,7 +100,7 @@ namespace DupFin
 
             Console.WriteLine($"Scaning path: {path} ...");
 
-            await FileScanner.ScanDirectoryAsync(path);
+            await FileScanner.ScanDirectory(scanPath, mode, algo);
 
             Console.WriteLine("\nPress Enter to exit [DEBUG]");
             Console.ReadKey();
@@ -58,6 +109,10 @@ namespace DupFin
             Console.Write("Save to Scan result.txt? (y/n): ");
             if (Console.ReadLine()?.ToLower() == "y")
             {
+                string savePath = GetSavePath();
+                if (savePath != null)
+                    SaveResults(FileScanner.FoundFiles, savePath);
+
                 string fileName = $"DupFin_Results_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
                 SaveResults(FileScanner.FoundFiles, fileName);
             }
