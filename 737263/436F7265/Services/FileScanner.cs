@@ -94,7 +94,7 @@ namespace DupFin.Services
             }
         }
         // Method to create hasher based on choice
-        private static HashAlgorithm CreateHasher(HashAlgorithmType algo)
+        public static HashAlgorithm CreateHasher(HashAlgorithmType algo)
             {
                 return algo switch
                 {
@@ -105,7 +105,7 @@ namespace DupFin.Services
                 };
         }
         // Hashing
-        private static async Task<string> ComputeHash(string filePath, HashAlgorithmType algo)
+        public static async Task<string> ComputeHash(string filePath, HashAlgorithmType algo)
         {
                 using HashAlgorithm hasher = CreateHasher(algo);
                 using FileStream stream = File.OpenRead(filePath);

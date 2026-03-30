@@ -11,10 +11,10 @@ using HashAlgorithmType = DupFin.Enums.HashAlgorithmType;
 
 namespace DupFin._737263._436F7265.Services
 {
-    internal class ChoiceService
+    public class ChoiceService
     {
         // Method to get user choices for scan mode
-        static ScanMode GetScanMode()
+        public static ScanMode GetScanMode()
         {
             Console.WriteLine("\n+-+SCAN MODE+-+");
             Console.WriteLine("1. Async (I/O bound)");
@@ -34,7 +34,7 @@ namespace DupFin._737263._436F7265.Services
         }
 
         // Method to get choice for hash algorithm
-        static HashAlgorithmType GetHashAlgorithm()
+        public static HashAlgorithmType GetHashAlgorithm()
         {
             Console.WriteLine("\n+-+HASH ALGORITHM+-+");
             Console.WriteLine("1. MD5");
@@ -52,7 +52,7 @@ namespace DupFin._737263._436F7265.Services
         }
 
         // Method to get save path
-        static string GetSavePath()
+        public static string GetSavePath()
         {
             Console.Write("\nSave to file? (y/n): ");
             if (Console.ReadLine()?.ToLower() != "y") return null;
@@ -82,7 +82,7 @@ namespace DupFin._737263._436F7265.Services
             return Path.Combine(folder, fileName);
         }
         // Method to save results
-        static void SaveResults(Dictionary<string, List<string>> hashes, string filePath)
+        public static void SaveResults(Dictionary<string, List<string>> hashes, string filePath)
         {
             // Using StringBuilder for efficiensy, especially with large results
             var sb = new System.Text.StringBuilder();
