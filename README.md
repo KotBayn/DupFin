@@ -9,20 +9,32 @@
     \   |_________________________|   |_________________________|   /  
 
 
-DupFin is a fast and efficient console utility built with C# and .NET. It is designed to scan specific directories, identify identical files, and group them together to help users free up disk space. 
+# DupFin (Duplicate Finder)
 
-## Features
-* **Hash-Based Comparison:** Uses cryptographic hashing (e.g., SHA-256) to ensure files are 100% identical, avoiding false positives.
-* **Service-Oriented Architecture:** The core logic is decoupled from the console interface, ensuring clean and maintainable code.
-* **Detailed Reporting:** Generates a structured output displaying the exact hash and the paths of all duplicated files.
+DupFin is a high-performance, multi-threaded console utility (with an upcoming WinForms GUI) designed to scan file systems and find duplicate files efficiently. 
 
-## Example Output
-```text
-*===* DupFin Scan Results *===*
-Date: 28-03-2026 20:08:23
+Unlike naive duplicate scanners that hash every single file and choke system memory, DupFin is engineered to minimize Disk I/O operations and maximize CPU utilization without causing Task Starvation.
 
-Total duplicate groups found: 2
+## Key Features & Under the Hood
 
-[Hash: 03b05abe2ffc240aea0bd3e0a21edbbb242d4f16c2857919acab20ee5e7c63923248a4f0f1670b5f3d43dfeb73da956486455f68b1263f332e0dbebc9d6e6867]
-  + D:\Games\Lynda - Unity Cert Prep\01 Introduction.mp4
-  + D:\Games\Courses\Lynda - Unity Cert Prep\01 Introduction.mp4
+* **Smart O(1) Pre-filtering:** The engine first groups files by their exact byte size using `Directory.EnumerateFiles`. Files with a unique size are immediately discarded from the queue, saving up to 90% of unnecessary hashing and disk reads.
+* **Parallel Asynchronous Hashing:** Uses `Parallel.ForEachAsync` constrained by `Environment.ProcessorCount`. This perfectly balances CPU-bound mathematical operations (hashing) and I/O-bound disk reads, preventing Disk Thrashing on HDDs/SSDs.
+* **Thread-Safe Architecture:** Completely lock-free asynchronous operations utilizing `ConcurrentDictionary` and `ConcurrentBag` to prevent thread deadlocks and bottlenecks during simultaneous file processing.
+* **Fault-Tolerant:** Gracefully handles `UnauthorizedAccessException` for locked/system files without crashing the scan pipeline, using `FileShare.Read` for files opened by other processes.
+
+## Tech Stack
+* **Language:** C#
+* **Framework:** .NET 8
+* **Hashing Algorithms:** MD5, SHA-256, SHA-512
+
+## How it Works
+1.  **Traversal:** Recursively scans the target directory (Memory-safe enumeration).
+2.  **Optimization:** Filters out files that do not share the exact same size in bytes.
+3.  **Hashing:** Applies the selected cryptographic hash (Default: SHA-256) only to potential duplicates.
+4.  **Reporting:** Outputs a clean, structured summary of duplicate groups and saves the results to a `.txt` file on the Desktop.
+
+## Usage (Console)
+Run the application and follow the interactive prompts:
+1. Enter the target directory path (or press Enter for the current directory).
+2. Choose the preferred hash algorithm.
+3. Review the results in the console and opt to save them to a formatted text file.
