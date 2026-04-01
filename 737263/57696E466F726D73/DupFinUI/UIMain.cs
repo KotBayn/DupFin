@@ -2,9 +2,9 @@ using System;
 using System.Windows.Forms;
 using DupFin;
 
-namespace DupFinUI
+namespace DupFinUI.forms
 {
-    internal static class Program
+    internal static class UIMain
     {
         /// <summary>
         ///  The main entry point for the application.
@@ -15,7 +15,7 @@ namespace DupFinUI
             // To customize application configuration such as set high DPI settings or default font,
             // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
-            Application.Run(new Form1());
+            Application.Run(new WelcomeForm());
         }
     }
 }

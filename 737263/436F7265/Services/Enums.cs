@@ -13,13 +13,5 @@ namespace DupFin.Enums
         SHA256,
         SHA512
     }
-
-    public enum ScanMode
-    {
-        Async,
-        Parallel,
-        Sync,
-        Bidirectional
-    }
     
 }
