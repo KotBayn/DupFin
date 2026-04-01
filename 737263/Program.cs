@@ -29,7 +29,7 @@ namespace DupFin
             }
 
             Console.Write($"\nChoose (1-{modes.Length}): ");
-            string choice = Console.ReadLine();
+            string? choice = Console.ReadLine();
 
             // Parsing user input and validating it
             if (int.TryParse(choice, out int index) && index >= 1 && index <= modes.Length)
@@ -57,7 +57,7 @@ namespace DupFin
             }
 
             Console.Write($"\nChoose (1-{algos.Length}): ");
-            string choice = Console.ReadLine();
+            string? choice = Console.ReadLine();
 
             if (int.TryParse(choice, out int index) && index >= 1 && index <= algos.Length)
             {
@@ -67,17 +67,17 @@ namespace DupFin
             return HashAlgorithmType.SHA256; // Default
         }
         // Getting save path
-        static string GetSavePath()
+        static string ?GetSavePath()
         {
             Console.Write("\nSave results to file? (y/n): ");
             if (Console.ReadLine()?.ToLower() != "y") return null;
 
             Console.Write("Folder (Enter for defoult): ");
-            string folder = Console.ReadLine();
+            string? folder = Console.ReadLine();
             if (string.IsNullOrWhiteSpace(folder)) folder = Directory.GetCurrentDirectory();
 
             Console.Write("Filename (Enter for auto): ");
-            string filename = Console.ReadLine();
+            string? filename = Console.ReadLine();
             if (string.IsNullOrWhiteSpace(filename))
                 filename = $"DupFin_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
             else if (!filename.EndsWith(".txt")) filename += ".txt";
@@ -163,7 +163,7 @@ namespace DupFin
             Console.WriteLine("*===*Welcome to DupFin 1.1*===*");
             // Enter — searching in current path
             Console.WriteLine("Choose directory or press 'Enter' for current path");
-            string path = Console.ReadLine();
+            string? path = Console.ReadLine();
 
             if (string.IsNullOrWhiteSpace(path)) path = Directory.GetCurrentDirectory();
 
@@ -190,7 +190,7 @@ namespace DupFin
             Console.Clear();
 
             // Saving
-            string savePath = GetSavePath();
+            string? savePath = GetSavePath();
             if (savePath != null)
                 SaveResults(FileScanner.FoundFiles, savePath);
 

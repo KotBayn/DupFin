@@ -52,7 +52,7 @@ namespace DupFin._737263._436F7265.Services
         }
 
         // Method to get save path
-        public static string GetSavePath()
+        public static string? GetSavePath()
         {
             Console.Write("\nSave to file? (y/n): ");
             if (Console.ReadLine()?.ToLower() != "y") return null;
@@ -61,7 +61,7 @@ namespace DupFin._737263._436F7265.Services
             string deskPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
 
             Console.Write("Choose folder (Enter for defoult): ");
-            string folder = Console.ReadLine();
+            string? folder = Console.ReadLine();
             if (string.IsNullOrWhiteSpace(folder)) folder = deskPath;
                         
             // Make subfolder for files

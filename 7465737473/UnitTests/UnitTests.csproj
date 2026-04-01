@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\DupFin.csproj" />
+    <ProjectReference Include="..\..\737263\DupFin.csproj" />
   </ItemGroup>
 
 </Project>
