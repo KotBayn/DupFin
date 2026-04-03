@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Windows.Forms;
+using DupFin.Enums;
 
 namespace DupFinUI.forms
 {
@@ -12,16 +13,25 @@ namespace DupFinUI.forms
 
         private void btnLaunch_Click(object sender, EventArgs e)
         {
-            // Проверяем, выбрана ли папка
-            if (string.IsNullOrWhiteSpace(txtPath.Text))
+            // Checking the path
+            if (string.IsNullOrWhiteSpace(textBoxPath.Text))
             {
-                MessageBox.Show("Выберите папку!", "Ошибка",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Choose folder!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            // Передаём путь в ProgressForm
-            var progressForm = new ProgressForm(txtPath.Text);
+            // Reading type of hash from ComboBox. If user don`t choose anysing
+            // use SHA256  
+            HashAlgorithmType selectedAlgo = HashAlgorithmType.SHA256;
+
+            if (comboHashTypeBox.SelectedItem != null)
+            {
+                // Making text back to Enum
+                selectedAlgo = (HashAlgorithmType)Enum.Parse(typeof(HashAlgorithmType), comboHashTypeBox.SelectedItem.ToString()!);
+            }
+
+            // Sending both parametrs to next form
+            var progressForm = new ProgressForm(textBoxPath.Text, selectedAlgo);
             progressForm.Show();
             this.Hide();
         }
@@ -31,7 +41,36 @@ namespace DupFinUI.forms
             using (var dialog = new FolderBrowserDialog())
             {
                 if (dialog.ShowDialog() == DialogResult.OK)
-                    txtPath.Text = dialog.SelectedPath;
+                    textBoxPath.Text = dialog.SelectedPath;
+            }
+        }
+
+        private void textBoxPath_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void btnBrowse_Click_1(object sender, EventArgs e)
+        {
+            using (var dialog = new FolderBrowserDialog())
+            {
+                if (dialog.ShowDialog() == DialogResult.OK)
+                    textBoxPath.Text = dialog.SelectedPath;
+            }
+        }
+
+        private void comboHashTypeBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
+        }
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            base.OnFormClosing(e);
+
+            // Если форму закрывают крестиком или через Alt+F4 - убиваем процесс к чертовой матери
+            if (e.CloseReason == CloseReason.UserClosing)
+            {
+                Environment.Exit(0);
             }
         }
     }

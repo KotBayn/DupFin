@@ -1,7 +1,8 @@
-﻿using System.IO;
+﻿using DupFin.Enums;       
+using DupFin.Services;
+using System;
+using System.IO;
 using System.Threading.Tasks;
-using DupFin.Services;      
-using DupFin.Enums;       
 using Xunit;
 
 namespace DupFin._7465737473
@@ -9,12 +10,22 @@ namespace DupFin._7465737473
     public class StartupTests
     {
         [Fact]
-        public void TestIsItWorks()
+        private async Task ScanAsync()
         {
-            // Calling the test to see if it runs without exceptions
-            byte result = 20 + 95;
-            // If runs without exceptions, the result is not null or empty
-            Assert.Equal(115, result);
+            try
+            {
+                // SHA256
+                await FileScanner.ScanDirectory(_path, HashAlgorithmType.SHA256);
+
+                var resultsForm = new ResultsForm();
+                resultsForm.Show();
+                this.Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error: {ex.Message}", "Error");
+                this.Close();
+            }
         }
     }
     public class HashTests

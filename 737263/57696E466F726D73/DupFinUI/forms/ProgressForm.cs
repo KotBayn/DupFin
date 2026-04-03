@@ -9,16 +9,23 @@ namespace DupFinUI.forms
     public partial class ProgressForm : Form
     {
         private string _path;
+        private HashAlgorithmType _algo;
 
-        public ProgressForm(string path)
+        public ProgressForm(string path, HashAlgorithmType algo)
         {
             InitializeComponent();
             _path = path;
+            _algo = algo;
         }
 
-        private async void ProgressForm_Load(object sender, EventArgs e)
+        protected override async void OnShown(EventArgs e)
         {
-            // 
+            base.OnShown(e); // Обязательная системная штука
+
+            // Жестко задаем правильный стиль прямо из кода, чтобы ты в свойствах ничего не перепутал
+            progressBar1.Style = ProgressBarStyle.Marquee;
+
+            // Запускаем сканер
             await ScanAsync();
         }
 
@@ -26,18 +33,36 @@ namespace DupFinUI.forms
         {
             try
             {
-                // Тут будет твой FileScanner
-                await FileScanner.ScanDirectory(_path, HashAlgorithmType);
+                // Create a progress reporter that will update the label safely
+                var progress = new Progress<string>(status =>
+                {
+                    lableStatus.Text = status;
+                });
+                // Pass the progress reporter to our scanner
+                await Task.Run(async () =>
+                {
+                    await FileScanner.ScanDirectory(_path, _algo, progress);
+                });
 
-                // После завершения — переходим к результатам
+                // Transition to ResultsForm when finished
                 var resultsForm = new ResultsForm();
                 resultsForm.Show();
-                this.Close();
+                this.Close(); // Закрываем окно прогресса
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка");
+                MessageBox.Show($"Scan Error: {ex.Message}", "Error");
                 this.Close();
+            }
+        }
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            base.OnFormClosing(e);
+
+            // Если форму закрывают крестиком или через Alt+F4 - убиваем процесс к чертовой матери
+            if (e.CloseReason == CloseReason.UserClosing)
+            {
+                Environment.Exit(0);
             }
         }
     }

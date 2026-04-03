@@ -18,16 +18,23 @@ namespace DupFinUI.forms
         }
         private void btnWelcome_Click(object sender, EventArgs e)
         {
-            // Making a new form instance
-            var mainForm = new MainForm(this);
+            var mainForm = new MainForm(); 
             mainForm.Show();
-
-            // hiding the welcome form
             this.Hide();
         }
         private void WelcomeForm_Load(object sender, EventArgs e)
         {
             // ----
+        }
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            base.OnFormClosing(e);
+
+            // Если форму закрывают крестиком или через Alt+F4 - убиваем процесс к чертовой матери
+            if (e.CloseReason == CloseReason.UserClosing)
+            {
+                Environment.Exit(0);
+            }
         }
     }
 }

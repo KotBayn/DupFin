@@ -55,14 +55,16 @@ namespace DupFinUI.forms
             // 
             // btnWelcome
             // 
+            btnWelcome.AutoSize = true;
+            btnWelcome.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             btnWelcome.BackColor = Color.LightSeaGreen;
             btnWelcome.Dock = DockStyle.Bottom;
             btnWelcome.FlatStyle = FlatStyle.Popup;
             btnWelcome.Font = new System.Drawing.Font("Perpetua", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
             btnWelcome.ForeColor = Color.Aqua;
-            btnWelcome.Location = new Point(0, 284);
+            btnWelcome.Location = new Point(0, 297);
             btnWelcome.Name = "btnWelcome";
-            btnWelcome.Size = new Size(781, 51);
+            btnWelcome.Size = new Size(781, 38);
             btnWelcome.TabIndex = 1;
             btnWelcome.Text = "Launch!";
             btnWelcome.UseVisualStyleBackColor = false;
@@ -89,6 +91,7 @@ namespace DupFinUI.forms
             Controls.Add(welcomeText);
             Controls.Add(btnWelcome);
             Controls.Add(Welcoming);
+            FormBorderStyle = FormBorderStyle.Fixed3D;
             Name = "WelcomeForm";
             Text = "DupFin";
             Load += WelcomeForm_Load;

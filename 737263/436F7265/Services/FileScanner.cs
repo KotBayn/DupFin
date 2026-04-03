@@ -18,13 +18,16 @@ namespace DupFin.Services
         private static int _processedCount = 0;
         private static int _totalFiles = 0;
 
-        public static async Task ScanDirectory(string path, HashAlgorithmType algo)
+        // Added IProgress<string>? with a question mark to satisfy nullable reference types
+        public static async Task ScanDirectory(string path, HashAlgorithmType algo, 
+            IProgress<string>? progress = null)
         {
             FoundFiles.Clear();
             _processedCount = 0;
             _totalFiles = 0;
 
-            Console.WriteLine("Starting scan...");
+            // Report to UI instead of Console
+            progress?.Report("Starting scan... building file tree.");
 
             // Initial grouping by file size to quickly filter out unique files
             var bySize = new Dictionary<long, List<string>>();
@@ -43,6 +46,12 @@ namespace DupFin.Services
                         bySize[size].Add(file);
 
                         _totalFiles++;
+
+                        // Optionally report finding files so the UI doesn't look frozen on huge folders
+                        if (_totalFiles % 1000 == 0)
+                        {
+                            progress?.Report($"Found {_totalFiles} files so far...");
+                        }
                     }
                     catch (UnauthorizedAccessException)
                     {
@@ -56,48 +65,54 @@ namespace DupFin.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[!] Critical access error in root directory: {ex.Message}");
+                progress?.Report($"[!] Critical access error in root directory: {ex.Message}");
                 return;
             }
 
-            Console.WriteLine($"Found {_totalFiles} files. Optimizing hash queue...");
+            progress?.Report($"Found {_totalFiles} files. Optimizing hash queue...");
 
             // Select only files that share a size with at least one other file
             var potentialDuplicates = bySize.Values.Where(g => g.Count > 1).SelectMany(g => g).ToList();
 
-            Console.WriteLine($"Files queued for hashing: {potentialDuplicates.Count} (Skipped {_totalFiles - potentialDuplicates.Count} unique files)");
+            progress?.Report($"Files queued for hashing: {potentialDuplicates.Count}");
 
             var options = new ParallelOptions
             {
-                // 8 cores - 8 threads, 16 cores - 16 threads, etc.
-                // Let the system decide the optimal number of threads.
+                // Let the system decide the optimal number of threads based on CPU cores
                 MaxDegreeOfParallelism = Environment.ProcessorCount
             };
 
             // Parallel.ForEachAsync takes care of thread management 
             await Parallel.ForEachAsync(potentialDuplicates, options, async (file, ct) =>
             {
-                // ct - its CancellationToken, just in case
-                await ProcessFile(file, algo, potentialDuplicates.Count);
+                // Passed the 'progress' variable correctly here
+                await ProcessFile(file, algo, potentialDuplicates.Count, progress);
             });
         }
 
-        private static async Task ProcessFile(string filePath, HashAlgorithmType algo, int totalToHash)
+        private static async Task ProcessFile(string filePath, HashAlgorithmType algo,
+            int totalToHash, IProgress<string>? progress)
         {
             try
             {
                 // Thread-safe increment for progress tracking
                 int current = Interlocked.Increment(ref _processedCount);
-                Console.WriteLine($"[{current}/{totalToHash}] Hashing: {filePath}");
+
+                // THROTTLING (Optimization): Report to UI only every 50th file or on the very last file.
+                // This prevents the UI thread from freezing due to a flood of update requests.
+                if (current % 10 == 0 || current == totalToHash)
+                {
+                    progress?.Report($"[{current}/{totalToHash}] {filePath}");
+                }
 
                 string hash = await ComputeHash(filePath, algo);
 
                 // Add file path to the corresponding hash group securely
                 FoundFiles.GetOrAdd(hash, _ => new ConcurrentBag<string>()).Add(filePath);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine($"[!] Error processing {filePath}: {ex.Message}");
+                // Silently skip corrupted/locked files during hashing
             }
         }
 
