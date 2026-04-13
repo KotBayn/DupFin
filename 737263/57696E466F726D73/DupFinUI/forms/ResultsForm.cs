@@ -235,7 +235,7 @@ namespace DupFinUI.forms
         {
             base.OnFormClosing(e);
 
-            // Если форму закрывают крестиком или через Alt+F4 - убиваем процесс к чертовой матери
+            // Nuke
             if (e.CloseReason == CloseReason.UserClosing)
             {
                 Environment.Exit(0);

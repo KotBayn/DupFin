@@ -10,6 +10,7 @@ namespace DupFinUI.forms
     {
         private string _path;
         private HashAlgorithmType _algo;
+        private bool _isSwitching = false;
 
         public ProgressForm(string path, HashAlgorithmType algo)
         {
@@ -20,12 +21,11 @@ namespace DupFinUI.forms
 
         protected override async void OnShown(EventArgs e)
         {
-            base.OnShown(e); // Обязательная системная штука
+            base.OnShown(e); // Important, otherwise the form might not render before the scan starts
 
-            // Жестко задаем правильный стиль прямо из кода, чтобы ты в свойствах ничего не перепутал
             progressBar1.Style = ProgressBarStyle.Marquee;
 
-            // Запускаем сканер
+            // Start the scanning
             await ScanAsync();
         }
 
@@ -43,11 +43,12 @@ namespace DupFinUI.forms
                 {
                     await FileScanner.ScanDirectory(_path, _algo, progress);
                 });
-
+                
+                _isSwitching = true;
                 // Transition to ResultsForm when finished
                 var resultsForm = new ResultsForm();
                 resultsForm.Show();
-                this.Close(); // Закрываем окно прогресса
+                this.Close(); // 
             }
             catch (Exception ex)
             {
@@ -59,8 +60,8 @@ namespace DupFinUI.forms
         {
             base.OnFormClosing(e);
 
-            // Если форму закрывают крестиком или через Alt+F4 - убиваем процесс к чертовой матери
-            if (e.CloseReason == CloseReason.UserClosing)
+            // Nuke
+            if (!_isSwitching && e.CloseReason == CloseReason.UserClosing)
             {
                 Environment.Exit(0);
             }
