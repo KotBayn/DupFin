@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
 using DupFin.Services;
@@ -7,66 +8,148 @@ namespace DupFinUI.forms
 {
     public partial class ResultsForm : Form
     {
-        public ResultsForm()
+        private bool _checkPaths;
+
+        public ResultsForm(bool checkPaths)
         {
             InitializeComponent();
-
-            // Trigger results loading when form is initialized
+            _checkPaths = checkPaths;
             LoadResults();
         }
 
         private void LoadResults()
         {
             int duplicatesCount = 0;
-
-            // Clear any existing nodes in the TreeView before populating
             treeResults.Nodes.Clear();
 
-            // Iterate through the thread-safe dictionary from FileScanner
             foreach (var group in FileScanner.FoundFiles)
             {
-                // ConcurrentBag does not support indexers like [0]. 
-                // We must convert it to a standard array to read the items.
-                string[] files = group.Value.ToArray();
+                string[] files = group.Value.OrderBy(f => f).ToArray(); // sort files alphabetically
 
-                // Only display groups that actually contain duplicates
                 if (files.Length > 1)
                 {
                     duplicatesCount += (files.Length - 1);
 
-                    // Create a parent node representing the duplicate group
-                    // Using a substring of the hash just to keep the UI clean
-                    string shortHash = group.Key.Substring(0, 8);
-                    TreeNode groupNode = new TreeNode($"Group Hash: {shortHash}... ({files.Length} files)");
+                    // If the key contains the file name (Strict Match enabled), clean up the display
+                    string displayHash = group.Key.Length > 8 ? group.Key.Substring(0, 8) : group.Key;
+                    TreeNode groupNode = new TreeNode($"Group Hash: {displayHash}... ({files.Length} files)");
 
-                    // Add each identical file as a child node under this parent
-                    foreach (string file in files)
+                    if (_checkPaths)
                     {
-                        groupNode.Nodes.Add(file);
+                        var folders = files.GroupBy(f => System.IO.Path.GetDirectoryName(f));
+                        foreach (var folder in folders)
+                        {
+                            TreeNode folderNode = new TreeNode($"📁 {folder.Key}");
+                            foreach (var file in folder)
+                            {
+                                // Important: store the full path in the Tag so the Delete button knows what to delete
+                                TreeNode fileNode = new TreeNode(System.IO.Path.GetFileName(file)) { Tag = file };
+                                folderNode.Nodes.Add(fileNode);
+                            }
+                            groupNode.Nodes.Add(folderNode);
+                        }
+                    }
+                    else
+                    {
+                        // Standard flat output
+                        foreach (string file in files)
+                        {
+                            groupNode.Nodes.Add(new TreeNode(file) { Tag = file });
+                        }
                     }
 
-                    // Append the fully constructed group node to the TreeView
                     treeResults.Nodes.Add(groupNode);
                 }
             }
 
-            // Update the UI label with the total count
             labelCount.Text = $"Total duplicates found: {duplicatesCount}";
-
-            // Optional: Expand all nodes so the user immediately sees the files
-            // (If you expect thousands of groups, you might want to remove this line for performance)
-            treeResults.ExpandAll();
+            // Do not expand the tree automatically if complex grouping is enabled to avoid lag
+            if (!_checkPaths) treeResults.ExpandAll();
         }
-
-        private void btnDownload_Click(object sender, EventArgs e)
-        {
-            // TODO: Implement file saving logic (we can port it from ChoiceService later)
-            MessageBox.Show("Saving feature coming soon...", "Info");
-        }
-
-        // Nullsafe event handlers
         private void treeResults_AfterSelect(object sender, TreeViewEventArgs e)
         {
+            // ButPlug
+        }
+
+        private void BtnDelete_Click(object sender, EventArgs e)
+        {
+            var filesToDelete = new List<TreeNode>();
+
+            // Recursive search for all checked checkboxes in the tree
+            CollectCheckedNodes(treeResults.Nodes, filesToDelete);
+
+            if (filesToDelete.Count == 0)
+            {
+                MessageBox.Show("Select at least one file to delete!", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var warning = MessageBox.Show($"Are you sure you want to delete {filesToDelete.Count} files?", "Confirm Deletion", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (warning == DialogResult.No) return;
+
+            int deletedCount = 0;
+            foreach (var node in filesToDelete)
+            {
+                try
+                {
+                    string filePath = node.Tag.ToString();
+                    System.IO.File.Delete(filePath);
+                    node.Remove();
+                    deletedCount++;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Could not delete {node.Text}\nReason: {ex.Message}", "Delete Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+
+            CleanUpEmptyNodes();
+            MessageBox.Show($"Successfully deleted {deletedCount} files.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        // Recursive function to collect checked nodes
+        private void CollectCheckedNodes(TreeNodeCollection nodes, List<TreeNode> list)
+        {
+            foreach (TreeNode node in nodes)
+            {
+                if (node.Tag != null && node.Checked)
+                {
+                    list.Add(node);
+                }
+                CollectCheckedNodes(node.Nodes, list);
+            }
+        }
+
+        // Delete empty folders
+        private void CleanUpEmptyNodes()
+        {
+            for (int i = treeResults.Nodes.Count - 1; i >= 0; i--)
+            {
+                TreeNode hashNode = treeResults.Nodes[i];
+
+                for (int j = hashNode.Nodes.Count - 1; j >= 0; j--)
+                {
+                    if (hashNode.Nodes[j].Tag == null && hashNode.Nodes[j].Nodes.Count == 0)
+                    {
+                        hashNode.Nodes[j].Remove();
+                    }
+                }
+
+                // If in whole groupe is left 1 file
+                int totalFilesLeft = GetFileCount(hashNode);
+                if (totalFilesLeft <= 1)
+                {
+                    hashNode.Remove();
+                }
+            }
+        }
+
+        private int GetFileCount(TreeNode node)
+        {
+            if (node.Tag != null) return 1;
+            int count = 0;
+            foreach (TreeNode child in node.Nodes) count += GetFileCount(child);
+            return count;
         }
 
         private void btnBack_Click(object sender, EventArgs e)
@@ -236,10 +319,7 @@ namespace DupFinUI.forms
             base.OnFormClosing(e);
 
             // Nuke
-            if (e.CloseReason == CloseReason.UserClosing)
-            {
-                Environment.Exit(0);
-            }
+            if (e.CloseReason == CloseReason.UserClosing) Environment.Exit(0);
         }
     }
 }

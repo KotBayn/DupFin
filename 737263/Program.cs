@@ -117,7 +117,7 @@ namespace DupFin
 
             // Start the scanning process
             Console.WriteLine($"\nScanning: {path}...");
-            await FileScanner.ScanDirectory(path, algo);
+            await FileScanner.ScanDirectory(path, algo, matchName: true);
 
             // Pause for debugging before saving/printing
             Console.WriteLine(new string('-', 50));

@@ -7,113 +7,113 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using DupFin.Enums;
+using System.IO.Hashing;
 
 namespace DupFin.Services
 {
     public static class FileScanner
     {
-        // Thread-safe dictionary storing hashes as keys and thread-safe collections of file paths as values
         public static ConcurrentDictionary<string, ConcurrentBag<string>> FoundFiles { get; } = new();
 
         private static int _processedCount = 0;
-        private static int _totalFiles = 0;
 
-        // Added IProgress<string>? with a question mark to satisfy nullable reference types
-        public static async Task ScanDirectory(string path, HashAlgorithmType algo, 
-            IProgress<string>? progress = null)
+        public static async Task ScanDirectory(string path, HashAlgorithmType algo, bool matchName, IProgress<string>? progress = null)
         {
             FoundFiles.Clear();
             _processedCount = 0;
-            _totalFiles = 0;
 
-            // Report to UI instead of Console
-            progress?.Report("Starting scan... building file tree.");
+            progress?.Report("Stage 1: Building file tree and filtering by size...");
 
-            // Initial grouping by file size to quickly filter out unique files
             var bySize = new Dictionary<long, List<string>>();
+            int totalScanned = 0;
 
             try
             {
-                // EnumerateFiles avoids loading all files into memory at once
                 foreach (var file in Directory.EnumerateFiles(path, "*.*", SearchOption.AllDirectories))
                 {
                     try
                     {
                         var size = new FileInfo(file).Length;
-                        if (size == 0) continue; // Skip empty files
+                        if (size == 0) continue;
 
                         if (!bySize.ContainsKey(size)) bySize[size] = new List<string>();
                         bySize[size].Add(file);
 
-                        _totalFiles++;
-
-                        // Optionally report finding files so the UI doesn't look frozen on huge folders
-                        if (_totalFiles % 1000 == 0)
-                        {
-                            progress?.Report($"Found {_totalFiles} files so far...");
-                        }
+                        totalScanned++;
+                        if (totalScanned % 5000 == 0) progress?.Report($"Found {totalScanned} files...");
                     }
-                    catch (UnauthorizedAccessException)
-                    {
-                        // Silently ignore restricted system/hidden files
-                    }
-                    catch (Exception)
-                    {
-                        // Ignore other read exceptions to prevent scan termination
-                    }
+                    catch (UnauthorizedAccessException) { }
+                    catch (Exception) { }
                 }
             }
             catch (Exception ex)
             {
-                progress?.Report($"[!] Critical access error in root directory: {ex.Message}");
+                progress?.Report($"[!] Critical access error: {ex.Message}");
                 return;
             }
 
-            progress?.Report($"Found {_totalFiles} files. Optimizing hash queue...");
+            // Select groups of files that have the same size
+            var sameSizeGroups = bySize.Values.Where(g => g.Count > 1).ToList();
+            var filesForPartialHash = sameSizeGroups.SelectMany(g => g).ToList();
 
-            // Select only files that share a size with at least one other file
-            var potentialDuplicates = bySize.Values.Where(g => g.Count > 1).SelectMany(g => g).ToList();
-
-            progress?.Report($"Files queued for hashing: {potentialDuplicates.Count}");
-
-            var options = new ParallelOptions
+            if (filesForPartialHash.Count == 0)
             {
-                // Let the system decide the optimal number of threads based on CPU cores
-                MaxDegreeOfParallelism = Environment.ProcessorCount
-            };
+                progress?.Report("No duplicates found based on file size.");
+                return;
+            }
 
-            // Parallel.ForEachAsync takes care of thread management 
-            await Parallel.ForEachAsync(potentialDuplicates, options, async (file, ct) =>
+            progress?.Report($"Stage 2: Fast Pass (Partial Hashing) for {filesForPartialHash.Count} files...");
+
+            // Dictionary for groups by partial hash
+            var partialHashes = new ConcurrentDictionary<string, ConcurrentBag<string>>();
+            var options = new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount };
+
+            await Parallel.ForEachAsync(filesForPartialHash, options, async (file, ct) =>
             {
-                // Passed the 'progress' variable correctly here
-                await ProcessFile(file, algo, potentialDuplicates.Count, progress);
+                try
+                {
+                    string pHash = await ComputePartialHash(file, algo);
+                    long size = new FileInfo(file).Length;
+                    string compositeKey = $"{size}_{pHash}";
+
+                    partialHashes.GetOrAdd(compositeKey, _ => new ConcurrentBag<string>()).Add(file);
+                }
+                catch { }
+            });
+
+            // Select files with matching size and partial hash
+            var filesForFullHash = partialHashes.Values.Where(g => g.Count > 1).SelectMany(g => g).ToList();
+
+            if (filesForFullHash.Count == 0)
+            {
+                progress?.Report("No duplicates found after partial hash analysis.");
+                return;
+            }
+
+            progress?.Report($"Stage 3: Deep Scan (Full Hashing) for {filesForFullHash.Count} files...");
+            _processedCount = 0;
+
+            await Parallel.ForEachAsync(filesForFullHash, options, async (file, ct) =>
+            {
+                await ProcessFullHash(file, algo, filesForFullHash.Count, matchName, progress);
             });
         }
 
-        private static async Task ProcessFile(string filePath, HashAlgorithmType algo,
-            int totalToHash, IProgress<string>? progress)
+        private static async Task ProcessFullHash(string filePath, HashAlgorithmType algo, int totalToHash, bool matchName, IProgress<string>? progress)
         {
             try
             {
-                // Thread-safe increment for progress tracking
                 int current = Interlocked.Increment(ref _processedCount);
-
-                // THROTTLING (Optimization): Report to UI only every 50th file or on the very last file.
-                // This prevents the UI thread from freezing due to a flood of update requests.
-                if (current % 10 == 0 || current == totalToHash)
+                if (current % 5 == 0 || current == totalToHash)
                 {
-                    progress?.Report($"[{current}/{totalToHash}] {filePath}");
+                    progress?.Report($"Hashing [{current}/{totalToHash}] {Path.GetFileName(filePath)}");
                 }
 
-                string hash = await ComputeHash(filePath, algo);
-
-                // Add file path to the corresponding hash group securely
-                FoundFiles.GetOrAdd(hash, _ => new ConcurrentBag<string>()).Add(filePath);
+                string hash = await ComputeFullHash(filePath, algo);
+                string dictionaryKey = matchName ? $"{hash}_{Path.GetFileName(filePath)}" : hash;
+                FoundFiles.GetOrAdd(dictionaryKey, _ => new ConcurrentBag<string>()).Add(filePath);
             }
-            catch (Exception)
-            {
-                // Silently skip corrupted/locked files during hashing
-            }
+            catch { }
         }
 
         public static HashAlgorithm CreateHasher(HashAlgorithmType algo)
@@ -123,19 +123,54 @@ namespace DupFin.Services
                 HashAlgorithmType.MD5 => MD5.Create(),
                 HashAlgorithmType.SHA256 => SHA256.Create(),
                 HashAlgorithmType.SHA512 => SHA512.Create(),
-                _ => SHA256.Create() // Default fallback
+                _ => SHA256.Create()
             };
         }
 
-        public static async Task<string> ComputeHash(string filePath, HashAlgorithmType algo)
+        // Read first 64 KB
+        private static async Task<string> ComputePartialHash(string filePath, HashAlgorithmType algo)
         {
-            using HashAlgorithm hasher = CreateHasher(algo);
+            byte[] buffer = new byte[65536];
+            using FileStream stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, buffer.Length, true);
+            int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
 
-            // FileShare.Read ensures we can read files currently opened by other processes
-            using FileStream stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
+            if (algo == HashAlgorithmType.XxHash64)
+            {
+                var xxHash = new XxHash64();
+                xxHash.Append(new ReadOnlySpan<byte>(buffer, 0, bytesRead));
+                byte[] hashBytes = xxHash.GetCurrentHash();
+                return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
+            }
 
-            byte[] hashBytes = await Task.Run(() => hasher.ComputeHash(stream));
-            return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
+            using HashAlgorithm cryptoHasher = CreateHasher(algo);
+            byte[] legacyHashBytes = cryptoHasher.ComputeHash(buffer, 0, bytesRead);
+            return BitConverter.ToString(legacyHashBytes).Replace("-", "").ToLower();
+        }
+
+        // Whole file hashing
+        public static async Task<string> ComputeFullHash(string filePath, HashAlgorithmType algo)
+        {
+            int bufferSize = 1048576; // 1 MB
+            using FileStream stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize, true);
+
+            if (algo == HashAlgorithmType.XxHash64)
+            {
+                var xxHash = new XxHash64();
+                byte[] buffer = new byte[bufferSize];
+                int bytesRead;
+
+                while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                {
+                    xxHash.Append(new ReadOnlySpan<byte>(buffer, 0, bytesRead));
+                }
+
+                byte[] hashBytes = xxHash.GetCurrentHash();
+                return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
+            }
+
+            using HashAlgorithm cryptoHasher = CreateHasher(algo);
+            byte[] legacyHashBytes = await Task.Run(() => cryptoHasher.ComputeHash(stream));
+            return BitConverter.ToString(legacyHashBytes).Replace("-", "").ToLower();
         }
     }
 }

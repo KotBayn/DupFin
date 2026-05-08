@@ -1,6 +1,4 @@
-﻿using System;
-using System.Windows.Forms;
-using DupFin.Enums;
+﻿using DupFin.Enums;
 
 namespace DupFinUI.forms
 {
@@ -9,6 +7,8 @@ namespace DupFinUI.forms
         public MainForm()
         {
             InitializeComponent();
+            comboHashTypeBox.DataSource = Enum.GetValues(typeof(HashAlgorithmType));
+            comboHashTypeBox.SelectedItem = HashAlgorithmType.SHA256;
         }
 
         private void btnLaunch_Click(object sender, EventArgs e)
@@ -20,18 +20,19 @@ namespace DupFinUI.forms
                 return;
             }
 
-            // Reading type of hash from ComboBox. If user don`t choose anysing
-            // use SHA256  
-            HashAlgorithmType selectedAlgo = HashAlgorithmType.SHA256;
+            // Binding Enum to DataSource
+            HashAlgorithmType selectedAlgo = HashAlgorithmType.XxHash64;
 
             if (comboHashTypeBox.SelectedItem != null)
             {
-                // Making text back to Enum
-                selectedAlgo = (HashAlgorithmType)Enum.Parse(typeof(HashAlgorithmType), comboHashTypeBox.SelectedItem.ToString()!);
+                selectedAlgo = (HashAlgorithmType)comboHashTypeBox.SelectedItem;
             }
 
-            // Sending both parametrs to next form
-            var progressForm = new ProgressForm(textBoxPath.Text, selectedAlgo);
+            bool matchName = chkMatchName.Checked;
+            bool checkPaths = chkCheckPaths.Checked;
+
+            // Sending both parameters to next form
+            var progressForm = new ProgressForm(textBoxPath.Text, selectedAlgo, matchName, checkPaths);
             progressForm.Show();
             this.Hide();
         }

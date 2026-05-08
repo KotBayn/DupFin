@@ -26,4 +26,8 @@
     <Folder Include="57696E466F726D73\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="System.IO.Hashing" Version="10.0.7" />
+  </ItemGroup>
+
 </Project>

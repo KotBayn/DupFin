@@ -21,6 +21,9 @@ namespace DupFin._737263._436F7265.Services
             Console.WriteLine("1. MD5");
             Console.WriteLine("2. SHA256");
             Console.WriteLine("3. SHA512");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("4. XxHash64");
+            Console.ResetColor();
             Console.Write("Choose: ");
 
             return Console.ReadLine() switch
@@ -28,7 +31,8 @@ namespace DupFin._737263._436F7265.Services
                 "1" => HashAlgorithmType.MD5,
                 "2" => HashAlgorithmType.SHA256,
                 "3" => HashAlgorithmType.SHA512,
-                _ => HashAlgorithmType.SHA256 // default
+                "4" => HashAlgorithmType.XxHash64, 
+                _ => HashAlgorithmType.SHA256 // Default
             };
         }
 

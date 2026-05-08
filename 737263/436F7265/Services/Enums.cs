@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.IO.Hashing;
 
 namespace DupFin.Enums
 {
@@ -11,7 +12,8 @@ namespace DupFin.Enums
     {
         MD5,
         SHA256,
-        SHA512
+        SHA512,
+        XxHash64,
     }
     
 }

@@ -10,22 +10,23 @@ namespace DupFinUI.forms
     {
         private string _path;
         private HashAlgorithmType _algo;
+        private bool _matchName;
+        private bool _checkPaths;
         private bool _isSwitching = false;
 
-        public ProgressForm(string path, HashAlgorithmType algo)
+        public ProgressForm(string path, HashAlgorithmType algo, bool matchName, bool checkPaths)
         {
             InitializeComponent();
             _path = path;
             _algo = algo;
+            _matchName = matchName;
+            _checkPaths = checkPaths;
         }
 
         protected override async void OnShown(EventArgs e)
         {
-            base.OnShown(e); // Important, otherwise the form might not render before the scan starts
-
+            base.OnShown(e);
             progressBar1.Style = ProgressBarStyle.Marquee;
-
-            // Start the scanning
             await ScanAsync();
         }
 
@@ -33,22 +34,21 @@ namespace DupFinUI.forms
         {
             try
             {
-                // Create a progress reporter that will update the label safely
                 var progress = new Progress<string>(status =>
                 {
                     lableStatus.Text = status;
                 });
-                // Pass the progress reporter to our scanner
+
                 await Task.Run(async () =>
                 {
-                    await FileScanner.ScanDirectory(_path, _algo, progress);
+                    await FileScanner.ScanDirectory(_path, _algo, _matchName, progress);
                 });
-                
+
                 _isSwitching = true;
-                // Transition to ResultsForm when finished
-                var resultsForm = new ResultsForm();
+
+                var resultsForm = new ResultsForm(_checkPaths);
                 resultsForm.Show();
-                this.Close(); // 
+                this.Close();
             }
             catch (Exception ex)
             {
@@ -56,11 +56,10 @@ namespace DupFinUI.forms
                 this.Close();
             }
         }
+
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             base.OnFormClosing(e);
-
-            // Nuke
             if (!_isSwitching && e.CloseReason == CloseReason.UserClosing)
             {
                 Environment.Exit(0);

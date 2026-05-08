@@ -34,6 +34,8 @@
             btnBrowse = new Button();
             comboHashTypeBox = new ComboBox();
             Selecting = new Label();
+            chkMatchName = new CheckBox();
+            chkCheckPaths = new CheckBox();
             SuspendLayout();
             // 
             // Choosing
@@ -122,6 +124,35 @@
             Selecting.Text = "Choose hash type:";
             Selecting.TextAlign = ContentAlignment.MiddleCenter;
             // 
+            // chkMatchName
+            // 
+            chkMatchName.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            chkMatchName.AutoSize = true;
+            chkMatchName.BackColor = Color.DarkSlateGray;
+            chkMatchName.Checked = true;
+            chkMatchName.CheckState = CheckState.Checked;
+            chkMatchName.Font = new Font("Perpetua", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            chkMatchName.ForeColor = Color.Aqua;
+            chkMatchName.Location = new Point(543, 214);
+            chkMatchName.Name = "chkMatchName";
+            chkMatchName.Size = new Size(226, 32);
+            chkMatchName.TabIndex = 7;
+            chkMatchName.Text = "Strict Name Match";
+            chkMatchName.UseVisualStyleBackColor = false;
+            // 
+            // chkCheckPaths
+            // 
+            chkCheckPaths.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            chkCheckPaths.AutoSize = true;
+            chkCheckPaths.Font = new Font("Perpetua", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            chkCheckPaths.ForeColor = Color.Aqua;
+            chkCheckPaths.Location = new Point(12, 214);
+            chkCheckPaths.Name = "chkCheckPaths";
+            chkCheckPaths.Size = new Size(270, 32);
+            chkCheckPaths.TabIndex = 8;
+            chkCheckPaths.Text = "Group Paths in Results";
+            chkCheckPaths.UseVisualStyleBackColor = true;
+            // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(10F, 25F);
@@ -129,6 +160,8 @@
             BackColor = Color.DarkSlateGray;
             BackgroundImageLayout = ImageLayout.None;
             ClientSize = new Size(781, 335);
+            Controls.Add(chkCheckPaths);
+            Controls.Add(chkMatchName);
             Controls.Add(Selecting);
             Controls.Add(comboHashTypeBox);
             Controls.Add(btnBrowse);
@@ -150,5 +183,7 @@
         private Button btnBrowse;
         private ComboBox comboHashTypeBox;
         private Label Selecting;
+        private CheckBox chkMatchName;
+        private CheckBox chkCheckPaths;
     }
 }
